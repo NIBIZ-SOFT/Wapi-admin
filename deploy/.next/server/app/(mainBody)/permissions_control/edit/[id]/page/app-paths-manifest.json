@@ -1,0 +1,3 @@
+{
+  "/(mainBody)/permissions_control/edit/[id]/page": "app/(mainBody)/permissions_control/edit/[id]/page.js"
+}

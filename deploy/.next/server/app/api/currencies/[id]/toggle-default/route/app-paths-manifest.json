@@ -1,0 +1,3 @@
+{
+  "/api/currencies/[id]/toggle-default/route": "app/api/currencies/[id]/toggle-default/route.js"
+}

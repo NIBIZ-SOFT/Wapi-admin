@@ -1,0 +1,3 @@
+{
+  "/(mainBody)/page_management/edit/[id]/page": "app/(mainBody)/page_management/edit/[id]/page.js"
+}

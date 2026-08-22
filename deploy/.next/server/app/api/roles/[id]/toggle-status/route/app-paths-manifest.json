@@ -1,0 +1,3 @@
+{
+  "/api/roles/[id]/toggle-status/route": "app/api/roles/[id]/toggle-status/route.js"
+}

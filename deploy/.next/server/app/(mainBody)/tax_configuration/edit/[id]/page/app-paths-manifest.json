@@ -1,0 +1,3 @@
+{
+  "/(mainBody)/tax_configuration/edit/[id]/page": "app/(mainBody)/tax_configuration/edit/[id]/page.js"
+}

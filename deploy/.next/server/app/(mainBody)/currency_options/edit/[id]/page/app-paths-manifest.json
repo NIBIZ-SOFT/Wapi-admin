@@ -1,0 +1,3 @@
+{
+  "/(mainBody)/currency_options/edit/[id]/page": "app/(mainBody)/currency_options/edit/[id]/page.js"
+}

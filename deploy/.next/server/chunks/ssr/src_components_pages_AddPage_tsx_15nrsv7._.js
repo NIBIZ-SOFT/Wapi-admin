@@ -1,0 +1,3 @@
+module.exports=[375470,a=>{"use strict";var b=a.i(187924),c=a.i(181506),d=a.i(509412),e=a.i(50944),f=a.i(823292);a.i(802407);var g=a.i(778134),h=a.i(524853);a.s(["default",0,()=>{let{t:a}=(0,g.useTranslation)(),i=(0,e.useRouter)(),[j,{isLoading:k}]=(0,d.useCreatePageMutation)(),l=async b=>{try{b.get("color_config"),b.get("slug"),await j(b).unwrap(),f.toast.success(a("pages_success_created","Page created successfully")),i.push(h.ROUTES.ManagePages)}catch(b){f.toast.error(b?.data?.message||a("pages_error_create","Failed to create page"))}};return(0,b.jsx)(c.default,{onSubmit:l,isLoading:k})}])}];
+
+//# sourceMappingURL=src_components_pages_AddPage_tsx_15nrsv7._.js.map

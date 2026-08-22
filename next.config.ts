@@ -9,9 +9,9 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["unzipper"],
   env: {
     NEXT_PUBLIC_BASE_PATH: BASE_PATH,
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5500/api",
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
     NEXT_PUBLIC_API_BASE_URL: BASE_PATH + "/api",
-    NEXT_PUBLIC_STORAGE_URL: process.env.NEXT_PUBLIC_STORAGE_URL || "http://127.0.0.1:5500",
+    NEXT_PUBLIC_STORAGE_URL: process.env.NEXT_PUBLIC_STORAGE_URL,
     NEXT_PUBLIC_FRONT_URL: process.env.NEXT_PUBLIC_FRONT_URL || "http://localhost:3000",
   },
   redirects: async () => {

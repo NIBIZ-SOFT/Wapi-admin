@@ -1,3 +1,0 @@
-module.exports=[70477,a=>{"use strict";var b=a.i(187924),c=a.i(50944),d=a.i(823292),e=a.i(914477),f=a.i(21020),g=a.i(524853);a.s(["default",0,()=>{let a=(0,c.useRouter)(),[h,{isLoading:i}]=(0,e.useCreateRoleMutation)(),j=async b=>{try{let c=await h(b).unwrap();d.toast.success(c.message||"Role created successfully"),a.push(g.ROUTES.Roles)}catch(a){d.toast.error(a?.data?.message||"Failed to create role")}};return(0,b.jsx)("div",{children:(0,b.jsx)(f.default,{mode:"create",onSubmit:j,isLoading:i})})}])}];
-
-//# sourceMappingURL=src_components_roles_AddRole_tsx_1mqvfyr._.js.map

@@ -69,7 +69,8 @@ export const subscriptionApi = baseApi.enhanceEndpoints({ addTagTypes: ["Subscri
         method: "POST",
         body,
       }),
-      invalidatesTags: [
+      invalidatesTags: (_result, _error, body) => [
+        { type: "User", id: body.user_id },
         { type: "User", id: "LIST" },
         { type: "Subscription", id: "LIST" },
       ],

@@ -13,17 +13,22 @@ import {
 import { Switch } from "@/src/elements/ui/switch";
 import { Textarea } from "@/src/elements/ui/textarea";
 import { useGetAllRolesQuery } from "@/src/redux/api/roleApi";
+import { useGetAllPlansQuery } from "@/src/redux/api/planApi";
+import { useAssignPlanToUserMutation } from "@/src/redux/api/subscriptionApi";
 import {
   useCreateUserMutation,
   useGetUserByIdQuery,
   useUpdateUserMutation,
 } from "@/src/redux/api/userApi";
 import CountrySelect from "@/src/shared/CountrySelect";
-import { CreateUserPayload, UpdateUserPayload } from "@/src/types/store";
+import { CreateUserPayload, Plan, UpdateUserPayload } from "@/src/types/store";
 import { AddUserPageProps, FormState } from "@/src/types/user";
 import { Country } from "@/src/utils/countries";
+import { format } from "date-fns";
 import {
   ArrowLeft,
+  Clock,
+  CreditCard,
   Eye,
   EyeOff,
   Plus,
@@ -31,7 +36,7 @@ import {
   User as UserIcon,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ROUTES } from "../../constants";
 import Can from "../shared/Can";
@@ -45,12 +50,21 @@ const AddUserPage = ({ id }: AddUserPageProps) => {
     { skip: !id },
   );
   const { data: rolesData } = useGetAllRolesQuery({});
+  const { data: plansData } = useGetAllPlansQuery({
+    is_active: true,
+  });
   const [createUser, { isLoading: isCreating }] = useCreateUserMutation();
   const [updateUser, { isLoading: isUpdating }] = useUpdateUserMutation();
+  const [assignPlan, { isLoading: isAssigningPlan }] =
+    useAssignPlanToUserMutation();
   const [showPassword, setShowPassword] = useState(false);
 
+  const [selectedPlanId, setSelectedPlanId] = useState<string>("none");
+  const [planDuration, setPlanDuration] = useState<string>("1");
+
   const roles = rolesData?.data?.roles || [];
-  const isSubmitting = isCreating || isUpdating;
+  const plans = plansData?.data?.plans || [];
+  const isSubmitting = isCreating || isUpdating || isAssigningPlan;
 
   const initialForm = useMemo<FormState>(() => {
     if (isEditMode && userData?.data) {
@@ -83,9 +97,10 @@ const AddUserPage = ({ id }: AddUserPageProps) => {
 
   const [form, setForm] = useState<FormState>(initialForm);
 
-  useMemo(() => {
+  useEffect(() => {
     if (isEditMode && userData?.data) {
       const u = userData.data;
+      /* eslint-disable react-hooks/set-state-in-effect */
       setForm({
         name: u.name ?? "",
         email: u.email ?? "",
@@ -98,9 +113,21 @@ const AddUserPage = ({ id }: AddUserPageProps) => {
           (typeof u.role_id === "object" ? u.role_id?._id : u.role_id) ?? "",
         status: u.status,
       });
+
+      if (u.current_plan?._id) {
+        setSelectedPlanId(u.current_plan._id);
+      } else {
+        setSelectedPlanId("none");
+      }
+
+      if (u.current_subscription?.duration !== undefined) {
+        setPlanDuration(String(u.current_subscription.duration));
+      } else {
+        setPlanDuration("1");
+      }
+      /* eslint-enable react-hooks/set-state-in-effect */
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userData]);
+  }, [isEditMode, userData]);
 
   const set = (key: keyof FormState, value: string | boolean) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -117,6 +144,9 @@ const AddUserPage = ({ id }: AddUserPageProps) => {
   const handleSubmit = async () => {
     if (!isValid) return;
     try {
+      const selectedRole = roles.find((r) => r._id === form.role_id);
+      const isAgent = selectedRole?.name?.toLowerCase() === "agent";
+
       if (isEditMode && id) {
         const payload: UpdateUserPayload = {
           name: form.name.trim(),
@@ -129,6 +159,28 @@ const AddUserPage = ({ id }: AddUserPageProps) => {
           status: form.status,
         };
         await updateUser({ id, data: payload }).unwrap();
+
+        // Assign/Update plan if selected and changed
+        if (!isAgent && selectedPlanId && selectedPlanId !== "none") {
+          const initialPlanId = userData?.data?.current_plan?._id || "none";
+          const initialDuration =
+            userData?.data?.current_subscription?.duration !== undefined
+              ? String(userData.data.current_subscription.duration)
+              : "1";
+
+          if (
+            selectedPlanId !== initialPlanId ||
+            planDuration !== initialDuration
+          ) {
+            const d = parseInt(planDuration) || 1;
+            await assignPlan({
+              user_id: id,
+              plan_id: selectedPlanId,
+              duration: Math.max(1, Math.min(24, d)),
+            }).unwrap();
+          }
+        }
+
         toast.success("User updated successfully");
       } else {
         const payload: CreateUserPayload = {
@@ -141,7 +193,23 @@ const AddUserPage = ({ id }: AddUserPageProps) => {
           note: form.note.trim() || undefined,
           role_id: form.role_id || undefined,
         };
-        await createUser(payload).unwrap();
+        const res = await createUser(payload).unwrap();
+        const createdUserId = res?.data?._id;
+
+        if (
+          !isAgent &&
+          createdUserId &&
+          selectedPlanId &&
+          selectedPlanId !== "none"
+        ) {
+          const d = parseInt(planDuration) || 1;
+          await assignPlan({
+            user_id: createdUserId,
+            plan_id: selectedPlanId,
+            duration: Math.max(1, Math.min(24, d)),
+          }).unwrap();
+        }
+
         toast.success("User created successfully");
       }
       setTimeout(() => router.push(ROUTES.ManageUsers), 800);
@@ -364,6 +432,142 @@ const AddUserPage = ({ id }: AddUserPageProps) => {
                   className="data-[state=checked]:bg-(--text-green-primary)"
                 />
               </div>
+            </div>
+          </div>
+
+          {/* Subscription Plan */}
+          <div className="bg-white dark:bg-(--card-color) rounded-lg border border-(--input-border-color) dark:border-(--card-border-color) shadow-sm overflow-hidden">
+            <div className="sm:px-6 px-4 py-4 border-b border-gray-100 dark:border-(--card-border-color) flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center">
+                  <CreditCard className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                </div>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  Subscription Plan
+                </h2>
+              </div>
+              {userData?.data?.current_plan && (
+                <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                  Current: {userData.data.current_plan.name}
+                </span>
+              )}
+            </div>
+
+            <div className="sm:p-6 p-4 space-y-4">
+              {roles.find((r) => r._id === form.role_id)?.name?.toLowerCase() === "agent" ? (
+                <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg border border-amber-200 dark:border-amber-800/40">
+                  Agents inherit access from their tenant and do not have individual subscription plans.
+                </p>
+              ) : (
+                <>
+                  {isEditMode && userData?.data?.current_plan && (
+                    <div className="p-3.5 rounded-lg bg-slate-50 dark:bg-page-body border border-slate-100 dark:border-zinc-800 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+                          Active Subscription
+                        </span>
+                        <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 capitalize">
+                          {userData.data.current_subscription?.status || "Active"}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                          {userData.data.current_plan.name}
+                        </span>
+                        <span className="text-xs text-gray-500 capitalize">
+                          {userData.data.current_plan.billing_cycle}
+                        </span>
+                      </div>
+                      {userData.data.current_subscription?.expires_at && (
+                        <p className="text-xs text-gray-400 dark:text-gray-500">
+                          Expires:{" "}
+                          {format(
+                            new Date(userData.data.current_subscription.expires_at),
+                            "MMMM d, yyyy",
+                          )}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="space-y-1.5 flex flex-col">
+                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Assign / Select Plan
+                    </Label>
+                    <Select
+                      value={selectedPlanId}
+                      onValueChange={(v) => setSelectedPlanId(v)}
+                    >
+                      <SelectTrigger className="w-full bg-(--input-color) dark:bg-page-body border-(--input-border-color) dark:border-(--card-border-color) h-11">
+                        <SelectValue placeholder="Select plan" />
+                      </SelectTrigger>
+                      <SelectContent className="dark:bg-(--card-color) dark:border-(--card-border-color)">
+                        <SelectItem
+                          value="none"
+                          className="dark:hover:bg-(--table-hover) cursor-pointer"
+                        >
+                          No Plan
+                        </SelectItem>
+                        {plans.map((p: Plan) => (
+                          <SelectItem
+                            key={p._id}
+                            value={p._id}
+                            className="dark:hover:bg-(--table-hover) cursor-pointer"
+                          >
+                            {p.name} ({p.currency?.symbol || "$"}{p.price} / {p.billing_cycle})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {(() => {
+                    const selectedPlan = plans.find((p: Plan) => p._id === selectedPlanId);
+                    if (!selectedPlan || selectedPlan.billing_cycle === "lifetime") return null;
+                    return (
+                      <div className="space-y-1.5 flex flex-col">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                            <Clock className="w-3.5 h-3.5 text-gray-400" />
+                            Duration ({selectedPlan.billing_cycle === "yearly" ? "Years" : "Months"})
+                          </Label>
+                          <span className="text-xs text-gray-400">1 - 24 cycles</span>
+                        </div>
+                        <Input
+                          type="number"
+                          min="1"
+                          max="24"
+                          value={planDuration}
+                          onChange={(e) => setPlanDuration(e.target.value)}
+                          placeholder="1"
+                          className="h-11 bg-(--input-color) rounded-lg p-3 dark:bg-page-body border-(--input-border-color) dark:border-zinc-700"
+                        />
+                      </div>
+                    );
+                  })()}
+
+                  {selectedPlanId && selectedPlanId !== "none" && (
+                    <div className="p-3 rounded-lg bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 text-xs space-y-1 text-emerald-900 dark:text-emerald-300">
+                      <div className="flex justify-between font-medium">
+                        <span>Price:</span>
+                        <span>
+                          {plans.find((p: Plan) => p._id === selectedPlanId)?.currency?.symbol || "$"}
+                          {plans.find((p: Plan) => p._id === selectedPlanId)?.price}
+                        </span>
+                      </div>
+                      <div className="flex justify-between font-medium">
+                        <span>Billing Cycle:</span>
+                        <span className="capitalize">
+                          {plans.find((p: Plan) => p._id === selectedPlanId)?.billing_cycle}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-emerald-700 dark:text-emerald-400 pt-1 border-t border-emerald-200/40 dark:border-emerald-800/40">
+                        {isEditMode ? "Plan will be assigned/updated upon clicking Update User." : "Plan will be assigned immediately after user creation."}
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </div>
 

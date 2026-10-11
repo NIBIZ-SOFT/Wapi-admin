@@ -23,6 +23,7 @@ import {
   Edit2,
   Key,
   MoreVertical,
+  Plus,
   RotateCcw,
   ShieldAlert,
   Trash2,
@@ -225,21 +226,53 @@ const UserList = ({
       id: "plan",
       header: t("common_plan"),
       className: "[@media(max-width:1620px)]:min-w-[120px]",
-      accessor: (user) =>
-        user.current_plan ? (
-          <div className="min-w-0">
-            <p className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate">
-              {user.current_plan.name}
-            </p>
-            <p className="text-xs text-gray-400 dark:text-gray-500 capitalize">
-              {user.current_plan.billing_cycle}
-            </p>
-          </div>
-        ) : (
-          <span className="text-xs text-gray-400 dark:text-gray-500">
-            {t("common_no_plan", { defaultValue: "No plan" })}
-          </span>
-        ),
+      accessor: (user) => {
+        const roleName =
+          typeof user.role_id === "object"
+            ? user.role_id?.name
+            : user.role || "—";
+        const isAgent = roleName.toLowerCase() === "agent";
+
+        if (isAgent) {
+          return (
+            <span className="text-xs text-gray-400 dark:text-gray-500">—</span>
+          );
+        }
+
+        return (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleOpenAssignModal(user);
+            }}
+            className="group/plan text-left cursor-pointer p-1 -m-1 rounded hover:bg-gray-100 dark:hover:bg-zinc-800/60 transition-colors inline-block"
+            title={t("common_assign_plan", { defaultValue: "Assign / Change Plan" })}
+          >
+            {user.current_plan ? (
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <p className="text-xs font-semibold text-gray-800 dark:text-gray-200 group-hover/plan:text-primary transition-colors truncate">
+                    {user.current_plan.name}
+                  </p>
+                  <Edit2 className="w-3 h-3 text-gray-400 group-hover/plan:text-primary opacity-0 group-hover/plan:opacity-100 transition-opacity" />
+                </div>
+                <p className="text-xs text-gray-400 dark:text-gray-500 capitalize">
+                  {user.current_plan.billing_cycle}
+                </p>
+              </div>
+            ) : (
+              <Badge
+                variant="outline"
+                className="text-xs border-dashed border-gray-300 dark:border-zinc-700 text-gray-500 group-hover/plan:border-primary group-hover/plan:text-primary transition-colors flex items-center gap-1 font-normal cursor-pointer"
+              >
+                <Plus className="w-3 h-3" />
+                {t("common_assign_plan", { defaultValue: "Assign Plan" })}
+              </Badge>
+            )}
+          </button>
+        );
+      },
     },
     {
       id: "joined",
